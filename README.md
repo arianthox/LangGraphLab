@@ -31,6 +31,124 @@ Research   Gmail      Gmail      Job       Reminder  General
 
 ---
 
+## Quick Start
+
+### 1. Prerequisites
+
+- [Ollama](https://ollama.com/) running locally with `qwen3:14b` pulled:
+  ```bash
+  ollama pull qwen3:14b
+  ```
+- Python 3.11+
+- `make` (pre-installed on Linux/macOS)
+
+### 2. Clone and install
+
+```bash
+git clone git@github.com:arianthox/LangGraphLab.git
+cd LangGraphLab
+make install
+```
+
+This creates the virtual environment, installs all dependencies, and copies `.env.example` → `.env` if it doesn't exist yet.
+
+### 3. Configure environment
+
+Edit the generated `.env`:
+
+```env
+# Ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen3:14b
+
+# Telegram — get a token from @BotFather
+TELEGRAM_BOT_TOKEN=your-bot-token-here
+
+# Gmail (optional — only needed for email flows)
+GMAIL_CREDENTIALS_FILE=/app/data/gmail_credentials.json
+GMAIL_TOKEN_FILE=/app/data/gmail_token.json
+```
+
+### 4. Set up Gmail (optional)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a project
+2. Enable the **Gmail API**
+3. Create **OAuth 2.0 credentials** (Desktop app type) and download as JSON
+4. Save the file to the path set in `GMAIL_CREDENTIALS_FILE`
+5. Run the headless OAuth flow:
+   ```bash
+   make gmail-auth
+   ```
+   This prints a URL — open it in your browser, approve access, and paste the code back.
+
+### 5. Run
+
+```bash
+make run          # start in background
+make logs         # tail live output
+```
+
+Or run everything at once (assistant + LangGraph Studio):
+
+```bash
+make start-all
+```
+
+---
+
+## Makefile Reference
+
+Run `make help` at any time to see a summary of all commands.
+
+### Setup
+
+| Command | Description |
+|---|---|
+| `make install` | Create `.venv`, install all dependencies from `requirements.txt`, copy `.env.example` if no `.env` exists |
+| `make gmail-auth` | Run the Gmail OAuth2 flow — safe on headless servers (prints URL, prompts for code) |
+
+### Run
+
+| Command | Description |
+|---|---|
+| `make run` | Kill any existing instance and start the assistant in the background (`/tmp/langgraph-assistant.log`) |
+| `make dev` | Start in the foreground with live output — useful for debugging |
+| `make studio` | Start LangGraph Studio in a `screen` session on port `8123` |
+| `make start-all` | Run both `make run` and `make studio` in one step |
+
+### Monitor
+
+| Command | Description |
+|---|---|
+| `make status` | Show whether the assistant and LangGraph Studio are running (PID / screen session) |
+| `make logs` | `tail -f` the assistant log (`/tmp/langgraph-assistant.log`) |
+| `make studio-logs` | `tail -f` the LangGraph Studio log (`/tmp/langgraph-studio.log`) |
+
+### Stop
+
+| Command | Description |
+|---|---|
+| `make stop` | Kill the background assistant process |
+| `make stop-studio` | Quit the `langgraph-studio` screen session |
+| `make stop-all` | Stop both the assistant and Studio |
+
+### Test
+
+| Command | Description |
+|---|---|
+| `make smoke` | Fast intent-routing + memory sanity check — no Ollama call needed |
+| `make test-research` | Run the full research pipeline end-to-end (calls Ollama, ~30 s) |
+
+### Maintenance
+
+| Command | Description |
+|---|---|
+| `make clean` | Remove all `__pycache__` directories and `.pyc` files |
+| `make clean-memory` | Delete the local SQLite conversation memory DB (`~/.langgraph_assistant/memory.db`) |
+| `make lint` | Run `ruff` linter over `src/` (auto-installs `ruff` if not present) |
+
+---
+
 ## Supported Flows
 
 ### 1. Research
@@ -82,7 +200,7 @@ set_intent ──► read_node ──► summarize_node
 
 **File:** `src/workflows/gmail_wf.py` (send path)
 
-Uses Ollama to extract recipient, subject, and body from a natural-language request, then sends the email via the Gmail API. If no valid email address is found, it shows the draft for your review instead of sending.
+Uses Ollama to extract recipient, subject, and body from a natural-language request, then sends via the Gmail API. If no valid address is found it shows the draft for review instead of sending.
 
 ```
 set_intent ──► compose_node ──► send_node
@@ -127,7 +245,7 @@ parse_query_node ──► search_jobs_node ──► format_results_node
 
 **Handler:** `main.py` → `src/memory/store.py`
 
-Stores free-text reminders in SQLite, scoped per Telegram `chat_id`. No time-based delivery yet — reminders are stored and can be listed on demand.
+Stores free-text reminders in SQLite, scoped per Telegram `chat_id`. Reminders are stored and can be listed on demand.
 
 **Add a reminder — trigger keywords:** `remind me`, `reminder`, `don't forget`, `set a reminder`, `note to self`, `remember to`, `memo`
 
@@ -144,7 +262,7 @@ Stores free-text reminders in SQLite, scoped per Telegram `chat_id`. No time-bas
 
 **Handler:** `main.py` → `src/agents/base.py`
 
-All messages that don't match any of the above are handled by `BaseAgent` — a `ChatOllama`-backed conversational agent. The last 10 messages per user are loaded from SQLite and passed as context, so the bot remembers earlier parts of the conversation.
+All messages that don't match the above are handled by `BaseAgent` — a `ChatOllama`-backed conversational agent. The last 10 messages per user are loaded from SQLite and passed as context so the bot remembers earlier parts of the conversation.
 
 **Special commands:**
 
@@ -153,103 +271,6 @@ All messages that don't match any of the above are handled by `BaseAgent` — a 
 | `/clear` | Wipes your conversation history |
 | `forget our conversation` | Same as `/clear` |
 | `clear history` | Same as `/clear` |
-
----
-
-## Quick Start
-
-### 1. Prerequisites
-
-- [Ollama](https://ollama.com/) running locally with `qwen3:14b` pulled:
-  ```bash
-  ollama pull qwen3:14b
-  ```
-- Python 3.11+
-
-### 2. Install
-
-```bash
-git clone git@github.com:arianthox/LangGraphLab.git
-cd LangGraphLab
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pip install ddgs   # DuckDuckGo search (renamed package)
-```
-
-### 3. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-
-```env
-# Ollama
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=qwen3:14b
-
-# Telegram — get a token from @BotFather
-TELEGRAM_BOT_TOKEN=your-bot-token-here
-
-# Gmail (optional — only needed for email flows)
-GMAIL_CREDENTIALS_FILE=/app/data/gmail_credentials.json
-GMAIL_TOKEN_FILE=/app/data/gmail_token.json
-```
-
-### 4. Set up Gmail (optional)
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a project
-2. Enable the **Gmail API**
-3. Create **OAuth 2.0 credentials** (Desktop app type) and download as JSON
-4. Save to the path set in `GMAIL_CREDENTIALS_FILE`
-5. Generate the OAuth token (run this on the server — it prints a URL to open in your browser):
-
-```bash
-source .venv/bin/activate
-python3 -c "
-from google_auth_oauthlib.flow import InstalledAppFlow
-from src.config import GMAIL_CREDENTIALS_FILE, GMAIL_TOKEN_FILE
-import json
-
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly',
-          'https://www.googleapis.com/auth/gmail.send']
-
-flow = InstalledAppFlow.from_client_secrets_file(GMAIL_CREDENTIALS_FILE, SCOPES)
-flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
-auth_url, _ = flow.authorization_url(prompt='consent')
-print('Open this URL:', auth_url)
-code = input('Paste the code: ')
-flow.fetch_token(code=code)
-creds = flow.credentials
-with open(GMAIL_TOKEN_FILE, 'w') as f:
-    json.dump({'token': creds.token, 'refresh_token': creds.refresh_token,
-               'token_uri': creds.token_uri, 'client_id': creds.client_id,
-               'client_secret': creds.client_secret, 'scopes': list(creds.scopes)}, f)
-print('Token saved.')
-"
-```
-
-### 5. Run
-
-```bash
-source .venv/bin/activate
-python3 -m src.main
-```
-
-Or in the background:
-
-```bash
-nohup python3 -m src.main > /tmp/assistant.log 2>&1 &
-```
-
-### 6. LangGraph Studio (optional)
-
-```bash
-langgraph dev --host 0.0.0.0 --port 8123
-```
-
-Then open `https://smith.langchain.com/studio/?baseUrl=http://localhost:8123`.
 
 ---
 
