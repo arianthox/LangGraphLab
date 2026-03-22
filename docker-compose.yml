@@ -1,0 +1,22 @@
+# podman-compose compatible compose file
+version: '3.9'
+
+services:
+  assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: langgraph-assistant
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persist Gmail OAuth credentials and token
+      - ./data:/app/data
+      # Mount src for live development (comment out in production)
+      - ./src:/app/src:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Uncomment to expose a health/debug port if you add an HTTP server later
+    # ports:
+    #   - "8080:8080"

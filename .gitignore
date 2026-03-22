@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment / secrets — NEVER commit these
+.env
+*.env
+
+# Gmail OAuth credentials & tokens — sensitive, keep local
+/app/
+gmail_credentials.json
+gmail_token.json
+*_credentials.json
+*_token.json
+
+# LangGraph Studio / LangSmith
+.langgraph/
+
+# Memory DB (user data, keep local)
+*.db
+*.sqlite
+*.sqlite3
+~/.langgraph_assistant/
+
+# Logs
+*.log
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
